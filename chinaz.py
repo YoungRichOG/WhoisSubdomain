@@ -37,7 +37,7 @@ def get_whois(domain):
 	else:
 		contacts = contacts[0]
 
-	email = check_blacklist(email,contacts)
+	email,contacts = check_blacklist(email,contacts)
 	return email,contacts
 
 def get_email_info(email):
@@ -46,6 +46,7 @@ def get_email_info(email):
 		print('[*] 开始获取邮箱反查')
 		for i in range(1,101):
 			time.sleep(2)
+			print('[*] 第%s页' % i)
 			url = "http://whois.chinaz.com{}&st=&startDay=&endDay=&wTimefilter=$wTimefilter&page={}".format(email,i)
 			domain_re = '<div class="listOther"><a href="/(.*?)" target="_blank">'
 			r = requests.get(url=url,headers=headers)
@@ -60,6 +61,7 @@ def get_email_info(email):
 			if '暂无相关数据' not in r.text:
 				domain.append(re.findall(domain_re,r.text))
 			else:
+				print('[*] 获取邮箱反查结束\n')
 				break
 	else:
 		print('[*] 获取邮箱反查失败')
@@ -80,9 +82,10 @@ def get_contacts_info(contacts):
 			time.sleep(2)
 			print('[*] 第%s页' % i)
 			domain_re = '<div class="listOther"><a href="/(.*?)" target="_blank">'
-			email_re = '\?host=.*?&domain=.*?&ddlSearchMode=1' 
+			email_re = 'href="\?(.{0,500}?\&ddlSearchMode=1)' 
 			url = "http://whois.chinaz.com{}&st=&startDay=&endDay=&wTimefilter=$wTimefilter&page={}".format(contacts,i)
 			r = requests.get(url=url,headers=headers)
+			print('[*] 当前状态码:%s' % r.status_code)
 			domain_res = re.findall(domain_re,r.text)
 			email_list.append(re.findall(email_re,r.text))
 
@@ -97,6 +100,7 @@ def get_contacts_info(contacts):
 				for tmp in domain_res:
 					domain.append(tmp)
 			else:
+				print('[*] 获取联系人反查结束\n')
 				break
 	else:
 		print('[*] 获取联系人反查失败')
@@ -104,7 +108,7 @@ def get_contacts_info(contacts):
 	for ii in email_list:
 		if ii != []:
 			for ss in ii:
-				oo = re.findall('\?host=(.*?)&',ss)
+				oo = re.findall('host=(.*?)&',ss)
 				for mm in oo:
 					if mm not in email:
 						email.append(mm)
@@ -119,17 +123,49 @@ def get_contacts_info(contacts):
 
 def get_icp_info(domain):
 	domain_list = []
-	url = "http://icp.chinaz.com/ajaxsync.aspx?at=beiansl&callback=jquery&host={}&type=host".format(domain)
-	r = requests.get(url=url,headers=headers)
-	domain_re = re.findall('MainPage:"(.*?)"',r.text)
 	print('[*] 开始获取ICP备案反查')
-	print('[*] 当前状态码:%s' %r.status_code)
-	for i in domain_re:
-		time.sleep(2)
+	try:
+		url = "http://icp.chinaz.com/{}".format(domain)
+		r = requests.get(url=url,headers=headers,timeout=5)
+		print('[*] 当前状态码:%s' %r.status_code)
+	except Exception as e:
+		raise e
+	try:
+		icp_re = re.findall('<p><font>(.*?)</font>',r.text)[0]
+	except:
+		icp_re = 'null'
+	if '-' in icp_re:
+		icp_re = icp_re.split('-')[0]
+
+	get_icp_list = get_icp_number_info(icp_re)
+
+
+	for i in get_icp_list:
 		if ' ' in i:
 			domain_list.append(i.replace(' ','\n{},'.format(domain)))
 		else:
 			domain_list.append(i)
+	return domain_list
+
+def get_icp_number_info(icp_re):
+	domain_list = []
+	try:
+		for i in range(1,101):
+			time.sleep(2)
+			print('[*] 第%s页' % i)
+			url = "http://icp.chinaz.com/Home/PageData"
+			data = {'pageNo':i,'pageSize':'1000','Kw':icp_re}
+			r = requests.post(url=url,data=data,timeout=5,headers=headers)
+			r_response = r.json()['data']
+			if r_response != []:
+				for host in r_response:
+					domain_list.append(host['host'])
+			else:
+				print('[*] 获取ICP备案反查结束\n')
+				break
+	except Exception as e:
+		raise e
+
 	return domain_list
 
 def contacts_reverse_query(bbb):
@@ -140,7 +176,7 @@ def contacts_reverse_query(bbb):
 			time.sleep(2)
 			print('[*] 第%s页' % i)
 			domain_re = '<div class="listOther"><a href="/(.*?)" target="_blank">'
-			url = "http://whois.chinaz.com/reverse{}&st=&startDay=&endDay=&wTimefilter=$wTimefilter&page={}".format(a,i)
+			url = "http://whois.chinaz.com/reverse?{}&st=&startDay=&endDay=&wTimefilter=$wTimefilter&page={}".format(a,i)
 			r = requests.get(url=url,headers=headers)
 			print('[*] 当前状态码:%s' %r.status_code)
 			domain_res = re.findall(domain_re,r.text)
@@ -153,6 +189,7 @@ def contacts_reverse_query(bbb):
 			if '暂无相关数据' not in r.text:
 				domain.append(domain_res)
 			else:
+				print('[*] 获取联系人邮箱反查结束\n')
 				break
 	return domain
 
@@ -161,14 +198,22 @@ def check_blacklist(email,contacts):
 	email_blacklist = [
 		'xinnet.com','service.aliyun.com','35.cn','markmonitor.com','sfn.cn','brandma.co','ename.com','web.com'
 		]
-
-	email_re = 'host=(.*)&'
+	contacts_blacklist = ['REDACTEDFORPRIVACY']
+	common_re = 'host=(.*)&'
 	try:
-		email_res = re.findall(email_re,email)[0].split('@')[1]
+		email_res = re.findall(common_re,email)[0].split('@')[1]
 		if email_res in email_blacklist:
 			email = 'null'
 	except:
 		print('[*] 没有获取到邮箱')
 		email = 'null'
 
-	return email
+	try:
+		contacts_res = re.findall(common_re,contacts)[0]
+		if contacts_res in contacts_blacklist:
+			contacts = 'null'
+	except:
+		print('[*] 没有获取到联系人')
+		contacts = 'null'
+
+	return email,contacts
