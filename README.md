@@ -1,4 +1,4 @@
-# WhoisSubdomain
+# WhoisSubodmain
 
 > 通过Whois信息发现更多与目标有关联的域名，扩大攻击面。
 
@@ -10,7 +10,10 @@
 - [x] 注册联系人反查
 - [x] 注册邮箱反查
 - [x] 注册联系人邮箱反查
+- [x] ICP备案号反查
 - [x] 邮箱黑名单
+- [x] 联系人黑名单
+
 
 注册联系人邮箱反查:  
 在以往的渗透中发现反查联系人会有多个不同邮箱的情况，故该功能点产生
@@ -18,12 +21,16 @@
 邮箱黑名单:  
 包含常见的域名服务商，例如xinnet.com,ename.com等，主要减少噪音，如想要添加请修改chinaz.py内email_blacklist
 
+联系人黑名单:
+顾名思义和邮箱黑名单作用一样，减少噪音
+
 ## 如何使用
 将目标一行一个放置根目录下url.txt内,最终输出程序根目录res.txt  
 
-```
+```text
 python3 main.py
 ```
+
 ## 运行截图
 ![screenshot.png](screenshot/screenshot.png)
 
