@@ -1,4 +1,4 @@
-# WhoisSubodmain
+# WhoisSubdomain
 
 > 通过Whois信息发现更多与目标有关联的域名，扩大攻击面。
 
